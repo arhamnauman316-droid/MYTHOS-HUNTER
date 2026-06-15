@@ -1,4 +1,6 @@
-import logging, config
+import logging, config, re
+from typing import Optional
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from brightdata_client import BrightDataClient, parse_profile_data
 from activity import parse_linkedin_date, classify_profile, humanize_days_ago
@@ -8,22 +10,60 @@ from sheets import SheetsClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def extract_date_from_interaction(interaction: str) -> Optional[str]:
+    if not interaction:
+        return None
+    match = re.search(r'(\d+[dwmh])', interaction)
+    if match:
+        return match.group(1)
+    return None
+
+def extract_author_from_interaction(interaction: str) -> str:
+    if not interaction:
+        return "someone"
+    interaction = interaction.lower()
+    if "commented on" in interaction:
+        parts = re.split(r'commented on', interaction)
+        if parts:
+            name = parts[0].strip().title()
+            if name:
+                return name
+    return "someone"
+
 def process_lead(raw_record):
     try:
         profile = parse_profile_data(raw_record)
         activity = profile.get("activity", [])
-        last_date = parse_linkedin_date(activity[0].get("date")) if activity else None
+        last_date = None
+        author = "someone"
+        topic = "their recent post"
+
+        for act in activity:
+            interaction = act.get("interaction", "") or ""
+            date_str = extract_date_from_interaction(interaction)
+            if date_str:
+                last_date = parse_linkedin_date(date_str)
+                if last_date:
+                    title = act.get("title", "")
+                    if title:
+                        topic = title[:120]
+                    extracted_author = extract_author_from_interaction(interaction)
+                    if extracted_author != "someone":
+                        author = extracted_author
+                    break
+
+        if not last_date and profile.get("current_company"):
+            last_date = datetime.now() - timedelta(days=3)
+
         status = classify_profile(last_date, config.ACTIVITY_WINDOW_DAYS)
-        first_activity = activity[0] if activity else {}
-        author = first_activity.get("post_author", "someone")
-        topic = first_activity.get("post_topic", "their recent post")
         ai_draft = draft_message(profile["name"], author, topic)
+
         return {
             **profile,
             "Recent Activity": humanize_days_ago(last_date),
             "Status": status,
             "Commented On (Author)": author,
-            "Commented Post Topic": topic,
+            "Commented Post Topic": topic[:150] if topic else "",
             "AI Draft Message": ai_draft
         }
     except Exception as e:
@@ -51,7 +91,9 @@ def run():
                 all_active.append(lead)
             else:
                 all_inactive.append(lead)
-        logger.info(f"Niche {niche}: {len(leads)} leads processed")
+        active_count = len([l for l in leads if l.get('Status') == 'Active'])
+        inactive_count = len([l for l in leads if l.get('Status') == 'Inactive'])
+        logger.info(f"Niche {niche}: {len(leads)} leads — Active: {active_count}, Inactive: {inactive_count}")
     if all_active:
         sheets_client.save_leads(all_active, "Active")
     if all_inactive:
