@@ -1,5 +1,7 @@
-requests
-python-dotenv
+fastapi
+uvicorn
+anthropic
 gspread
-oauth2client
-argparse
+google-auth
+python-dotenv
+requests
