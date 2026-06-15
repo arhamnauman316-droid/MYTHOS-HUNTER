@@ -45,10 +45,14 @@ def status():
 def get_leads():
     try:
         sc = SheetsClient()
-        active = sc.sheet.worksheet(config.ACTIVE_TAB).get_all_records()
-        inactive = sc.sheet.worksheet(config.INACTIVE_TAB).get_all_records()
+        active_ws = sc.sheet.worksheet(config.ACTIVE_TAB)
+        inactive_ws = sc.sheet.worksheet(config.INACTIVE_TAB)
+        active = active_ws.get_all_records()
+        inactive = inactive_ws.get_all_records()
+        print(f"Active leads: {len(active)}, Inactive leads: {len(inactive)}")
         return {"active": active, "inactive": inactive}
     except Exception as e:
+        print(f"Leads error: {str(e)}")
         return {"active": [], "inactive": [], "error": str(e)}
 
 @app.get("/", response_class=HTMLResponse)
@@ -104,15 +108,15 @@ tr:hover td { background: #151515; }
   <div class="card">
     <h2 style="margin-bottom:16px">Leads</h2>
     <div class="tabs">
-      <button class="tab active" onclick="showTab('active')">Active</button>
-      <button class="tab" onclick="showTab('inactive')">Inactive</button>
+      <button class="tab" onclick="showTab('active', event)">Active</button>
+      <button class="tab active" onclick="showTab('inactive', event)">Inactive</button>
     </div>
     <div id="leadsTable"></div>
   </div>
 </div>
 <script>
 let polling = null;
-let currentTab = 'active';
+let currentTab = 'inactive';
 let leadsData = {active: [], inactive: []};
 
 function startHunt() {
@@ -145,10 +149,10 @@ function loadLeads() {
   });
 }
 
-function showTab(tab) {
+function showTab(tab, e) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  if (e) e.target.classList.add('active');
   renderTable();
 }
 
@@ -177,5 +181,4 @@ function renderTable() {
 loadLeads();
 </script>
 </body>
-</html>
-"""
+</html>"""

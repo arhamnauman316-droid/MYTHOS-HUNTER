@@ -66,28 +66,30 @@ class BrightDataClient:
 
     def _mock_data(self, niche: str) -> List[Dict[str, Any]]:
         return [
-            {"name": "Sarah Jenkins", "url": "https://www.linkedin.com/in/sarahjenkins", "headline": f"Experienced {niche}", "about": f"Helping clients as a {niche} for over 10 years.", "recent_activity": [{"type": "comment", "date": "2 days ago", "post_author": "Alex Rivera", "post_topic": "market strategy"}]},
-            {"name": "Michael Chen", "url": "https://www.linkedin.com/in/michaelchen", "headline": f"Top {niche}", "about": f"Leading {niche} in the region.", "recent_activity": [{"type": "post", "date": "3 days ago", "text": "Just finished a great project."}]}
+            {"name": "Sarah Jenkins", "url": "https://www.linkedin.com/in/sarahjenkins", "about": f"Helping clients as a {niche} for over 10 years.", "current_company_name": "Self Employed", "activity": [{"interaction": "Sarah Jenkins commented on a post 2d", "title": "market strategy insights"}]},
+            {"name": "Michael Chen", "url": "https://www.linkedin.com/in/michaelchen", "about": f"Leading {niche} in the region.", "current_company_name": "Chen Consulting", "activity": [{"interaction": "Michael Chen shared this 1w", "title": "Just finished a great project."}]}
         ]
 
 def parse_profile_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
     name_keys = ['name', 'full_name', 'fullName']
-    url_keys = ['url', 'linkedin_url', 'profile_url']
+    url_keys = ['url', 'linkedin_url', 'profile_url', 'input_url']
     def get_value(keys, default=""):
         for key in keys:
             if key in raw_data and raw_data[key]:
                 return raw_data[key]
         return default
-    activity = raw_data.get('recent_activity', []) or raw_data.get('posts', [])
+    activity = raw_data.get('activity', []) or raw_data.get('recent_activity', [])
     if not isinstance(activity, list):
         activity = []
     return {
         "name": get_value(name_keys),
         "url": get_value(url_keys),
-        "headline": raw_data.get('headline', ""),
+        "headline": raw_data.get('about', "")[:100] if raw_data.get('about') else "",
         "about": raw_data.get('about', ""),
-        "services": str(raw_data.get('services', "")),
+        "services": str(raw_data.get('current_company_name', "")),
         "email": raw_data.get('email', ""),
         "activity": activity,
+        "current_company": raw_data.get('current_company_name', ""),
+        "followers": raw_data.get('followers', 0),
         "raw": raw_data
     }

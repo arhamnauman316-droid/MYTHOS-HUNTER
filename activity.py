@@ -11,23 +11,25 @@ def parse_linkedin_date(date_str: Union[str, int, float, None]) -> Optional[date
     now = datetime.now()
     if "today" in date_str: return now
     if "yesterday" in date_str: return now - timedelta(days=1)
-    match = re.search(r'(\d+)\s*([a-z]+)', date_str)
+    match = re.search(r'(\d+)\s*([dwmh])', date_str)
     if match:
         value, unit = int(match.group(1)), match.group(2)
-        if unit.startswith('d'): return now - timedelta(days=value)
-        if unit.startswith('w'): return now - timedelta(weeks=value)
-        if unit.startswith('m'): return now - timedelta(days=value * 30) if unit.startswith('mo') else now - timedelta(minutes=value)
-        if unit.startswith('h'): return now - timedelta(hours=value)
-    return now
+        if unit == 'd': return now - timedelta(days=value)
+        if unit == 'w': return now - timedelta(weeks=value)
+        if unit == 'm': return now - timedelta(days=value * 30)
+        if unit == 'h': return now - timedelta(hours=value)
+    return None
 
 def classify_profile(last_activity_date: Optional[datetime], window_days: int = 10) -> str:
-    if not last_activity_date: return "INACTIVE"
+    if not last_activity_date: return "Inactive"
     days_ago = (datetime.now() - last_activity_date).days
-    return "ACTIVE" if days_ago <= window_days else "INACTIVE"
+    return "Active" if days_ago <= window_days else "Inactive"
 
 def humanize_days_ago(date_obj: Optional[datetime]) -> str:
     if not date_obj: return "Unknown"
     days = (datetime.now() - date_obj).days
     if days == 0: return "Today"
     if days == 1: return "Yesterday"
-    return f"{days} days ago"
+    if days < 7: return f"{days} days ago"
+    if days < 30: return f"{days // 7} weeks ago"
+    return f"{days // 30} months ago"
