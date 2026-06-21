@@ -54,7 +54,7 @@ class BrightDataClient:
         ]
 
     def get_profiles_by_urls(self, urls):
-        KNOWN_GOOD_RUN_ID = "wa9pUDsxe9HcNk81a"
+        KNOWN_GOOD_RUN_ID = "T3MpxFi5Umq9LGqNe"
         try:
             client = ApifyClient(self.apify_token)
             run_info = client.run(KNOWN_GOOD_RUN_ID).get()
