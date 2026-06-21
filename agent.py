@@ -52,8 +52,9 @@ def process_lead(raw_record):
                         author = extracted_author
                     break
 
-        if not last_date and profile.get("current_company"):
-            last_date = datetime.now() - timedelta(days=3)
+        # If no recent activity found, leave last_date as None to indicate no recent activity
+        # This will result in an "Inactive" classification, which is more accurate than an arbitrary date
+        pass
 
         status = classify_profile(last_date, config.ACTIVITY_WINDOW_DAYS)
         ai_draft = draft_message(profile["name"], author, topic)
@@ -64,7 +65,8 @@ def process_lead(raw_record):
             "Status": status,
             "Commented On (Author)": author,
             "Commented Post Topic": topic[:150] if topic else "",
-            "AI Draft Message": ai_draft
+            "AI Draft Message": ai_draft,
+            "Scraped At": profile.get("scraped_at", "")
         }
     except Exception as e:
         logger.error(f"Error processing lead: {e}")
@@ -93,9 +95,10 @@ def run():
                 all_inactive.append(lead)
         active_count = len([l for l in leads if l.get('Status') == 'Active'])
         inactive_count = len([l for l in leads if l.get('Status') == 'Inactive'])
-        logger.info(f"Niche {niche}: {len(leads)} leads — Active: {active_count}, Inactive: {inactive_count}")
+        logger.info(f"Niche {niche}: {len(leads)} leads - Active: {active_count}, Inactive: {inactive_count}")
     if all_active:
         sheets_client.save_leads(all_active, "Active")
+        sheets_client.save_messages(all_active)
     if all_inactive:
         sheets_client.save_leads(all_inactive, "Inactive")
     logger.info(f"Done. Active: {len(all_active)}, Inactive: {len(all_inactive)}")

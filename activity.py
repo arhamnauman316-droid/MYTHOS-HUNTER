@@ -11,6 +11,8 @@ def parse_linkedin_date(date_str: Union[str, int, float, None]) -> Optional[date
     now = datetime.now()
     if "today" in date_str: return now
     if "yesterday" in date_str: return now - timedelta(days=1)
+
+    # Handle formats like "2d", "3w", "1m", "5h"
     match = re.search(r'(\d+)\s*([dwmh])', date_str)
     if match:
         value, unit = int(match.group(1)), match.group(2)
@@ -18,6 +20,16 @@ def parse_linkedin_date(date_str: Union[str, int, float, None]) -> Optional[date
         if unit == 'w': return now - timedelta(weeks=value)
         if unit == 'm': return now - timedelta(days=value * 30)
         if unit == 'h': return now - timedelta(hours=value)
+
+    # Handle formats like "2 days ago", "3 weeks ago", etc.
+    match = re.search(r'(\d+)\s+(day|days|week|weeks|month|months|hour|hours)\s+ago', date_str)
+    if match:
+        value, unit = int(match.group(1)), match.group(2)
+        if unit.startswith('day'): return now - timedelta(days=value)
+        if unit.startswith('week'): return now - timedelta(weeks=value)
+        if unit.startswith('month'): return now - timedelta(days=value * 30)
+        if unit.startswith('hour'): return now - timedelta(hours=value)
+
     return None
 
 def classify_profile(last_activity_date: Optional[datetime], window_days: int = 10) -> str:
