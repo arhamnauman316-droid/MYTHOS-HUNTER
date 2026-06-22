@@ -61,7 +61,6 @@ def process_lead(raw_record):
 
         return {
             **profile,
-            "Recent Activity": humanize_days_ago(last_date),
             "Status": status,
             "Commented On (Author)": author,
             "Commented Post Topic": topic[:150] if topic else "",
@@ -72,11 +71,11 @@ def process_lead(raw_record):
         logger.error(f"Error processing lead: {e}")
         return None
 
-def run():
+def run(niche=None, sheet_id=None):
     logger.info("Mythos Hunter starting...")
     bd_client = BrightDataClient()
-    sheets_client = SheetsClient()
-    niches = sheets_client.get_niches()
+    sheets_client = SheetsClient(sheet_id=sheet_id) if sheet_id else SheetsClient()
+    niches = [niche] if niche else sheets_client.get_niches()
     logger.info(f"Found niches: {niches}")
     all_active = []
     all_inactive = []
