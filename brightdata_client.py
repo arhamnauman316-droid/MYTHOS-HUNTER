@@ -62,8 +62,9 @@ class BrightDataClient:
 
             # Load posts and index by profile URL
             posts_by_url = {}
-            posts_run_info = client.run(POSTS_RUN_ID).get()
-            posts_items = list(client.dataset(posts_run_info["defaultDatasetId"]).iterate_items())
+            posts_run_obj = client.run(POSTS_RUN_ID).get()
+            posts_ds_id = posts_run_obj["defaultDatasetId"] if isinstance(posts_run_obj, dict) else posts_run_obj.default_dataset_id
+            posts_items = list(client.dataset(posts_ds_id).iterate_items())
             for post in posts_items:
                 q = post.get("query") or {}
                 profile_url = (q.get("targetUrl") or "").rstrip("/")
@@ -80,8 +81,8 @@ class BrightDataClient:
             valid_items = []
             skipped = 0
             for run_id in PROFILE_RUN_IDS:
-                run_info = client.run(run_id).get()
-                dataset_id = run_info["defaultDatasetId"]
+                run_obj = client.run(run_id).get()
+                dataset_id = run_obj["defaultDatasetId"] if isinstance(run_obj, dict) else run_obj.default_dataset_id
                 items = list(client.dataset(dataset_id).iterate_items())
                 for item in items:
                     if item.get("error") or item.get("status") in (404, 400, 403):
