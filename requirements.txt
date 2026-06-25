@@ -6,4 +6,3 @@ google-auth
 python-dotenv
 requests
 apify-client
-duckduckgo-search
