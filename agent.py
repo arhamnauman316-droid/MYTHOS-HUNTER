@@ -2,7 +2,7 @@ import logging, config, re
 from typing import Optional
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
-from brightdata_client import BrightDataClient, parse_profile_data
+from brightdata_client import BrightDataClient
 from activity import parse_linkedin_date, classify_profile, humanize_days_ago
 from drafter import draft_message
 from sheets import SheetsClient
@@ -32,7 +32,7 @@ def extract_author_from_interaction(interaction: str) -> str:
 
 def process_lead(raw_record):
     try:
-        profile = parse_profile_data(raw_record)
+        profile = raw_record
         activity = profile.get("activity", [])
         last_date = None
         author = "someone"
