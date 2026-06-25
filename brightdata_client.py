@@ -33,25 +33,35 @@ def _ddg_search(query: str, max_results: int = 10) -> list[dict]:
     html = resp.text
     results = []
 
-    # Each result block looks like:
-    #   <a class="result__a" href="...">title</a>
-    #   <a class="result__snippet">body</a>
-    # DDG wraps the real URL in a redirect; the actual href is in
-    # the uddg= query param or directly in the href attribute.
-    blocks = re.findall(
-        r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
-        r'.*?<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+    # DDG's HTML structure varies and class names may appear in any order,
+    # so we use two lenient passes instead of one strict multi-line pattern.
+    #
+    # Pass 1: collect all result links (class contains "result__a").
+    # Pass 2: collect all snippet spans/divs (class contains "result__snippet").
+    # Pair them by index — DDG emits one link and one snippet per result block.
+
+    raw_links = re.findall(
+        r'<a\s[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
         html,
-        re.DOTALL,
+        re.DOTALL | re.IGNORECASE,
     )
 
-    for raw_href, raw_title, raw_body in blocks:
+    raw_snippets = re.findall(
+        r'class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</(?:a|div|span|td)>',
+        html,
+        re.DOTALL | re.IGNORECASE,
+    )
+
+    for i, (raw_href, raw_title) in enumerate(raw_links):
         # Resolve DDG redirect URLs (?uddg=<encoded-real-url>)
         uddg = re.search(r"[?&]uddg=([^&]+)", raw_href)
         href = requests.utils.unquote(uddg.group(1)) if uddg else raw_href
 
         title = re.sub(r"<[^>]+>", "", raw_title).strip()
-        body  = re.sub(r"<[^>]+>", "", raw_body).strip()
+        body  = re.sub(r"<[^>]+>", "", raw_snippets[i]).strip() if i < len(raw_snippets) else ""
+
+        if not href or not title:
+            continue
 
         results.append({"href": href, "title": title, "body": body})
         if len(results) >= max_results:
