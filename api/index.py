@@ -17,7 +17,7 @@ class StartRequest(BaseModel):
     niche: Optional[str] = None
     sheet_id: Optional[str] = None
 
-MAKE_WEBHOOK = "https://hook.eu1.make.com/itret5rrko0ics8y7uyz3qlwld3gpoyb"
+MAKE_WEBHOOK = "https://hook.eu1.make.com/vekvfbsi765m26pgiyharxiw2tqotmjd"
 
 def run_agent(niche=None, sheet_id=None):
     job_status["running"] = True
