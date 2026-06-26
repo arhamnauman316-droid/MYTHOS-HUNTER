@@ -15,7 +15,7 @@ def _serp(query: str, num: int = 5) -> list:
         resp = requests.get(
             "https://serpapi.com/search",
             params={"api_key": SERP_KEY, "engine": "google", "q": query, "num": num},
-            timeout=20,
+            timeout=45,
         )
         return resp.json().get("organic_results") or []
     except Exception as e:
