@@ -60,14 +60,21 @@ def process_lead(raw_record):
         name = profile.get("fullName") or profile.get("name", "")
         ai_draft = draft_message(name, author, topic)
 
+        posts = profile.get("posts", [])
+        recent_post = posts[0].get("text", "") if posts else ""
+        last_active = posts[0].get("publishedAt", "") if posts else ""
+
         return {
             **profile,
             "name": name,
+            "url": profile.get("linkedinUrl", ""),
             "Status": status,
             "Commented On (Author)": author,
             "Commented Post Topic": topic[:150] if topic else "",
             "AI Draft Message": ai_draft,
-            "Scraped At": profile.get("scraped_at", "")
+            "Scraped At": profile.get("scraped_at", ""),
+            "Recent Post": recent_post,
+            "Last Active": last_active,
         }
     except Exception as e:
         logger.error(f"Error processing lead: {e}")
