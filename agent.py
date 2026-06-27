@@ -57,7 +57,7 @@ def process_lead(raw_record):
         pass
 
         status = classify_profile(last_date, config.ACTIVITY_WINDOW_DAYS)
-        ai_draft = draft_message(profile["name"], author, topic)
+        ai_draft = draft_message(profile.get("name") or profile.get("fullName") or "there", author, topic)
 
         return {
             **profile,
