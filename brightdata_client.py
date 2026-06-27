@@ -31,7 +31,6 @@ class BrightDataClient:
         profiles = []
         seen = set()
 
-        # Step 1: Find LinkedIn profile URLs via SerpAPI
         logger.info(f"SerpAPI search for niche: {niche}")
         results = _serp(f"{niche} linkedin profile site:linkedin.com/in", num=limit + 5)
 
@@ -69,41 +68,47 @@ class BrightDataClient:
             if not name or len(name) < 3:
                 continue
 
-            # Step 2: Find latest post via SerpAPI
+            # Step 2: Find latest post + classify Active/Inactive
             post_text = ""
             post_date = ""
             is_active = False
             try:
-                post_results = _serp(f'"{name}" linkedin post {company}'.strip(), num=3)
-                for pr in post_results:
-                    plink = pr.get("link", "")
-                    psnippet = pr.get("snippet", "")
-                    if "linkedin.com" in plink and psnippet:
-                        post_text = psnippet[:200]
-                        post_date = "Recently"
-                        is_active = True
-                        break
-                if not post_text and post_results:
-                    post_text = post_results[0].get("snippet", "")[:200]
-                    post_date = "Recently"
-                    is_active = bool(post_text)
+                q = f'"{name}" linkedin post {company}'.strip()
+                any_results = _serp(q, num=3)
+                if any_results:
+                    post_text = any_results[0].get("snippet", "")[:300]
+                    post_date = any_results[0].get("date", "")
+                    # Active if date snippet contains recent time indicators
+                    recent_words = [
+                        "hour", "minute", "today", "yesterday",
+                        "1 day", "2 day", "3 day", "4 day", "5 day", "6 day", "7 day",
+                        "1d ago", "2d ago", "3d ago", "4d ago", "5d ago", "6d ago", "7d ago",
+                    ]
+                    combined = (post_text + " " + post_date).lower()
+                    is_active = any(w in combined for w in recent_words)
+                    if not post_date:
+                        post_date = "Within 7 days" if is_active else "Over a week ago"
             except Exception as e:
                 logger.warning(f"Post search failed for {name}: {e}")
 
             profiles.append({
-                "fullName":    name,
-                "linkedinUrl": url,
-                "email":       "",
-                "headline":    headline or snippet[:100],
-                "about":       company,
+                "name":            name,
+                "fullName":        name,
+                "url":             url,
+                "linkedinUrl":     url,
+                "email":           "",
+                "headline":        headline or snippet[:100],
+                "services":        "",
+                "about":           company,
+                "Recent Activity": post_text,
                 "posts": [{"text": post_text, "publishedAt": post_date}] if post_text else [],
-                "status":      "Active" if is_active else "Inactive",
-                "scraped_at":  scraped_at,
+                "status":          "Active" if is_active else "Inactive",
+                "scraped_at":      scraped_at,
             })
 
             if len(profiles) >= limit:
                 break
-        
+
         logger.info(f"Pipeline complete: {len(profiles)} profiles")
         return profiles
 
@@ -122,7 +127,7 @@ class BrightDataClient:
 
 def parse_profile_data(raw_record):
     """Convert profile format to what agent.py expects."""
-    name   = raw_record.get("fullName") or raw_record.get("name") or ""
+    name   = raw_record.get("name") or raw_record.get("fullName") or ""
     posts  = raw_record.get("posts", [])
     status = raw_record.get("status", "Inactive")
 
@@ -138,12 +143,17 @@ def parse_profile_data(raw_record):
     return {
         "name":            name,
         "Name":            name,
-        "LinkedIn URL":    raw_record.get("linkedinUrl") or "",
+        "url":             raw_record.get("url") or raw_record.get("linkedinUrl") or "",
+        "LinkedIn URL":    raw_record.get("url") or raw_record.get("linkedinUrl") or "",
+        "email":           raw_record.get("email") or "",
         "Email":           raw_record.get("email") or "",
+        "headline":        raw_record.get("headline") or "",
         "Headline":        raw_record.get("headline") or "",
+        "services":        "",
         "Service Section": "",
+        "about":           raw_record.get("about") or "",
         "About Section":   raw_record.get("about") or "",
-        "Recent Activity": posts[0].get("text", "") if posts else "",
+        "Recent Activity": raw_record.get("Recent Activity") or (posts[0].get("text", "") if posts else ""),
         "activity":        activity,
         "scraped_at":      raw_record.get("scraped_at") or "",
     }
