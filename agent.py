@@ -57,10 +57,12 @@ def process_lead(raw_record):
         pass
 
         status = classify_profile(last_date, config.ACTIVITY_WINDOW_DAYS)
-        ai_draft = draft_message(profile["name"], author, topic)
+        name = profile.get("fullName") or profile.get("name", "")
+        ai_draft = draft_message(name, author, topic)
 
         return {
             **profile,
+            "name": name,
             "Status": status,
             "Commented On (Author)": author,
             "Commented Post Topic": topic[:150] if topic else "",
