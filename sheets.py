@@ -6,7 +6,10 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 class SheetsClient:
-    def __init__(self):
+    def __init__(self, sheet_id=None):
+        if sheet_id:
+            import config as _config
+            _config.GOOGLE_SHEET_ID = sheet_id
         creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
         if creds_json:
             creds_info = json.loads(creds_json)

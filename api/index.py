@@ -42,8 +42,13 @@ def start(req: StartRequest = None):
         return {"status": "already running"}
     niche = (req.niche or "").strip() or None
     sheet_id = (req.sheet_id or "").strip() or None
-    threading.Thread(target=run_agent, kwargs={"niche": niche, "sheet_id": sheet_id}).start()
-    return {"status": "started"}
+    if not niche:
+        return {"status": "error", "message": "Please enter a niche"}
+    job_status["running"] = True  # Set immediately to prevent duplicates
+    t = threading.Thread(target=run_agent, kwargs={"niche": niche, "sheet_id": sheet_id})
+    t.daemon = True
+    t.start()
+    return {"status": "started", "niche": niche}
 
 @app.get("/status")
 def status():

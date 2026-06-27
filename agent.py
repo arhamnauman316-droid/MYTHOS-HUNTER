@@ -75,8 +75,12 @@ def run(niche=None, sheet_id=None):
     logger.info("Mythos Hunter starting...")
     bd_client = BrightDataClient()
     sheets_client = SheetsClient(sheet_id=sheet_id) if sheet_id else SheetsClient()
-    niches = [niche] if niche else sheets_client.get_niches()
-    logger.info(f"Found niches: {niches}")
+    # Always use UI niche if provided - never fall back to Sheet
+    if niche and niche.strip():
+        niches = [niche.strip()]
+    else:
+        niches = sheets_client.get_niches()
+    logger.info(f"Hunting niche: {niches[0] if niches else 'none'}")
     all_active = []
     all_inactive = []
     for niche in niches:
