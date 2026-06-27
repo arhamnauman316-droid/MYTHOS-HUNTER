@@ -65,7 +65,9 @@ class SheetsClient:
                     lead.get("Commented On (Author)", ""),
                     lead.get("Commented Post Topic", ""),
                     lead.get("AI Draft Message", ""),
-                    lead.get("Scraped At", "")
+                    lead.get("Scraped At", ""),
+                    lead.get("Recent Post", ""),
+                    lead.get("Last Active", ""),
                 ]
                 ws.append_row(row)
             logger.info(f"Saved {len(leads)} leads to {tab}")
