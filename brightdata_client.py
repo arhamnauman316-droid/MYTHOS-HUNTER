@@ -106,6 +106,14 @@ class BrightDataClient:
                             post_text = psnippet[:300]
                             post_date = post_datetime.strftime("%Y-%m-%d %H:%M UTC")
                             is_active = days_ago <= 14
+                            if is_active:
+                                post_date = "Posted in past 1-2 weeks"
+                            elif days_ago < 30:
+                                post_date = f"Last posted {days_ago} days ago"
+                            elif days_ago < 365:
+                                post_date = f"Last posted {days_ago // 30} month(s) ago"
+                            else:
+                                post_date = f"Last posted {days_ago // 365} year(s) ago"
                 if best_days is not None:
                     logger.info(f"{name}: last post {best_days}d ago -> {'Active' if is_active else 'Inactive'}")
             except Exception as e:
