@@ -84,8 +84,13 @@ class BrightDataClient:
             post_date = ""
             is_active = False
             try:
-                q = f'"{name}" site:linkedin.com activity'
+                # Use slug for exact match, fall back to name
+                q = f'linkedin.com/posts/{slug}'
                 post_results = _serp(q, num=5)
+                # If no results with slug, try name
+                if not post_results:
+                    q = f'"{name}" site:linkedin.com activity'
+                    post_results = _serp(q, num=5)
                 now = datetime.now(timezone.utc)
                 for pr in post_results:
                     plink = pr.get("link", "")
@@ -95,7 +100,7 @@ class BrightDataClient:
                         days_ago = (now - post_datetime).days
                         post_text = psnippet[:300]
                         post_date = post_datetime.strftime("%Y-%m-%d %H:%M UTC")
-                        is_active = days_ago <= 7
+                        is_active = days_ago <= 25
                         logger.info(f"{name}: last post {days_ago}d ago -> {'Active' if is_active else 'Inactive'}")
                         break
             except Exception as e:
