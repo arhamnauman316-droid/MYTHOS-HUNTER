@@ -7,11 +7,10 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 SERP_KEY = os.getenv("SERP_API_KEY", "773e0e5fd5d8fed34e1e699a2d95f3986277a1d264d9c17ab5c017b70cf459d0")
-ACTIVE_WINDOW_DAYS = 14  # Posted within 14 days = Active
+ACTIVE_WINDOW_DAYS = 14
 
 
 def _serp(query: str, num: int = 10) -> list:
-    """Search Google via SerpAPI."""
     try:
         resp = requests.get(
             "https://serpapi.com/search",
@@ -24,8 +23,7 @@ def _serp(query: str, num: int = 10) -> list:
         return []
 
 
-def _activity_id_to_days_ago(url: str) -> int | None:
-    """Decode LinkedIn activity ID to exact days ago. 100% accurate."""
+def _activity_id_to_days_ago(url: str):
     match = re.search(r"activity-(\d+)", url)
     if not match:
         return None
@@ -38,9 +36,8 @@ def _activity_id_to_days_ago(url: str) -> int | None:
         return None
 
 
-def _format_post_date(days_ago: int, is_active: bool) -> str:
-    """Human readable post date."""
-    if is_active:
+def _format_post_date(days_ago: int, status: str) -> str:
+    if status == "Active":
         return "Posted in past 1-2 weeks"
     elif days_ago < 30:
         return f"Last posted {days_ago} days ago"
@@ -52,18 +49,16 @@ def _format_post_date(days_ago: int, is_active: bool) -> str:
         return f"Last posted {years} year{'s' if years > 1 else ''} ago"
 
 
-def _get_most_recent_post(name: str, slug: str) -> tuple[int | None, str, str]:
-    """
-    Search for most recent LinkedIn post.
-    Returns (days_ago, post_text, post_date_str)
-    """
+def _get_most_recent_post(name: str, slug: str):
     all_results = []
-
-    # Query 1: direct slug search (most accurate)
-    all_results += _serp(f"linkedin.com/posts/{slug}", num=10)
-
-    # Query 2: name-based fallback
-    all_results += _serp(f'"{name}" site:linkedin.com activity', num=10)
+    queries = [
+        f"linkedin.com/posts/{slug}",
+        f'"{name}" site:linkedin.com activity',
+        f'"{name}" linkedin.com/posts',
+        f'linkedin.com/feed/update "{name}"',
+    ]
+    for q in queries:
+        all_results += _serp(q, num=10)
 
     best_days = None
     best_text = ""
@@ -72,40 +67,30 @@ def _get_most_recent_post(name: str, slug: str) -> tuple[int | None, str, str]:
     for r in all_results:
         link = r.get("link", "")
         snippet = r.get("snippet", "")
+        if f"/posts/{slug}" not in link and f"update/{slug}" not in link:
+            continue
         days = _activity_id_to_days_ago(link)
         if days is not None:
             if best_days is None or days < best_days:
                 best_days = days
                 best_text = snippet[:300]
-                is_active = days <= ACTIVE_WINDOW_DAYS
-                best_date_str = _format_post_date(days, is_active)
-
+                status = "Active" if days <= ACTIVE_WINDOW_DAYS else "Inactive"
+                best_date_str = _format_post_date(days, status)
     return best_days, best_text, best_date_str
 
 
 class BrightDataClient:
 
     def search_profiles(self, niche, limit=10):
-        """
-        Full pipeline:
-        1. SerpAPI finds LinkedIn profile URLs for niche
-        2. For each profile, find most recent post via activity ID
-        3. Classify Active (posted within 14 days) or Inactive
-        4. Return Active profiles first
-        """
         scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         profiles = []
         seen = set()
-
         logger.info(f"SerpAPI search for niche: {niche}")
         results = _serp(f"{niche} linkedin profile site:linkedin.com/in", num=limit + 5)
-
         for item in results:
             link = item.get("link", "")
             if "linkedin.com/in/" not in link:
                 continue
-
-            # Extract slug
             parts = link.split("linkedin.com/in/")
             if len(parts) < 2:
                 continue
@@ -113,12 +98,9 @@ class BrightDataClient:
             if not slug or slug in seen or slug == "dir":
                 continue
             seen.add(slug)
-
             url = f"https://www.linkedin.com/in/{slug}"
             title = item.get("title", "")
             snippet = item.get("snippet", "")
-
-            # Parse name and headline from title
             name = ""
             headline = ""
             company = ""
@@ -132,20 +114,16 @@ class BrightDataClient:
                         company = hl.split(" at ")[-1].strip()
             else:
                 name = title.replace("| LinkedIn", "").strip()
-
             if not name or len(name) < 3:
                 continue
-
-            # Get most recent post
             days_ago, post_text, post_date = _get_most_recent_post(name, slug)
-
-            is_active = days_ago is not None and days_ago <= ACTIVE_WINDOW_DAYS
-
-            logger.info(
-                f"{name}: {'posted ' + str(days_ago) + 'd ago' if days_ago is not None else 'no post found'} "
-                f"-> {'Active' if is_active else 'Inactive'}"
-            )
-
+            if days_ago is None:
+                status_label = "Unknown Activity"
+            elif days_ago <= ACTIVE_WINDOW_DAYS:
+                status_label = "Active"
+            else:
+                status_label = "Inactive"
+            logger.info(f"{name}: {str(days_ago) + 'd ago' if days_ago is not None else 'no post found'} -> {status_label}")
             profiles.append({
                 "name":            name,
                 "fullName":        name,
@@ -157,16 +135,13 @@ class BrightDataClient:
                 "about":           company,
                 "Recent Activity": post_text,
                 "posts": [{"text": post_text, "publishedAt": post_date}] if post_text else [],
-                "status":          "Active" if is_active else "Inactive",
+                "status":          status_label,
                 "scraped_at":      scraped_at,
             })
-
             if len(profiles) >= limit:
                 break
-
-        # Sort: Active profiles first
-        profiles.sort(key=lambda x: x["status"] != "Active")
-
+        order = {"Active": 0, "Unknown Activity": 1, "Inactive": 2}
+        profiles.sort(key=lambda x: order.get(x["status"], 3))
         active = len([p for p in profiles if p["status"] == "Active"])
         logger.info(f"Pipeline complete: {len(profiles)} profiles ({active} Active)")
         return profiles
@@ -185,20 +160,16 @@ class BrightDataClient:
 
 
 def parse_profile_data(raw_record):
-    """Convert profile format to what agent.py expects."""
-    name   = raw_record.get("name") or raw_record.get("fullName") or ""
-    posts  = raw_record.get("posts", [])
-    status = raw_record.get("status", "Inactive")
-
+    name = raw_record.get("name") or raw_record.get("fullName") or ""
+    posts = raw_record.get("posts", [])
+    status = raw_record.get("status", "Unknown Activity")
     activity = []
     for post in posts:
         text = post.get("text", "")
         interaction = "1d" if status == "Active" else "60d"
         activity.append({"interaction": interaction, "title": text[:120]})
-
     if status == "Active" and not activity:
         activity = [{"interaction": "1d", "title": ""}]
-
     return {
         "name":            name,
         "Name":            name,
