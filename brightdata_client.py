@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-SERP_KEY = os.getenv("SERP_API_KEY", "773e0e5fd5d8fed34e1e699a2d95f3986277a1d264d9c17ab5c017b70cf459d0")
+SERP_KEY = os.getenv("SERP_API_KEY", "4b09014e3fcad5c3e6e09dac983e5462add90e56bfd357d0d07977440311fc0d")
 ACTIVE_WINDOW_DAYS = 14
 
 
